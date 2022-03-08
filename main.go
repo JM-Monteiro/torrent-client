@@ -7,7 +7,7 @@ import (
 	"github.com/JM-Monteiro/torrent-client/torrentfile"
 )
 
-func mainReal() {
+func main() {
 	inPath := os.Args[1]
 	outPath := os.Args[2]
 

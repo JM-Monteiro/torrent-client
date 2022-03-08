@@ -55,5 +55,15 @@ func (t *TorrentFile) requestPeers(peerID [20]byte, port uint16) ([]peers.Peer, 
 	if err != nil {
 		return nil, err
 	}
-	return peers.Unmarshal([]byte(trackerResp.Peers))
+
+	peerList, err := peers.Unmarshal([]byte(trackerResp.Peers))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, peer := range peerList {
+		peer.Protocol = "TCP"
+	}
+
+	return peerList, nil
 }

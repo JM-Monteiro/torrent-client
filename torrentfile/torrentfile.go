@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/JM-Monteiro/torrent-client/p2p"
+	"github.com/JM-Monteiro/torrent-client/peers"
 
 	bencode2 "github.com/anacrolix/torrent/bencode"
 	"github.com/jackpal/bencode-go"
@@ -60,14 +61,30 @@ type MetaInfo struct {
 func (t *TorrentFile) DownloadToFile(path string) error {
 	var peerID [20]byte
 	_, err := rand.Read(peerID[:])
+
 	if err != nil {
 		return err
 	}
 
-	peers, err := t.requestPeers(peerID, Port)
+	log.Println("LAUNCHING HTTP")
+
+	peers := make([]peers.Peer, 0)
+
+	peers, err = t.requestPeers(peerID, Port)
 	if err != nil {
+		log.Println("TRACKER NOT GOOD", err)
 		return err
 	}
+	/*
+		log.Println("LAUNCHING DHT")
+
+		dhtPeers, err := p2p.GetPeersFromDHT(t.InfoHash, int(Port)+1)
+
+		if err != nil {
+			return err
+		}
+
+		peers = append(peers, dhtPeers...)*/
 
 	torrent := p2p.Torrent{
 		Peers:       peers,
@@ -90,22 +107,6 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 	}
 
 	return nil
-
-	/*if len(t.Files) > 0 {
-		return t.writeMultipleFiles(path, buf)
-	} else {
-		outFile, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-
-		defer outFile.Close()
-		_, err = outFile.Write(buf)
-		if err != nil {
-			return err
-		}
-		return nil
-	}*/
 }
 
 func (t *TorrentFile) recievePieces(path string, data chan []byte, id chan int) error {
