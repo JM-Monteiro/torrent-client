@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -21,19 +20,4 @@ func mainReal() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func main() {
-
-	tf, err := torrentfile.Open("originalTest.torrent")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = tf.DownloadToFile("testFiles")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(tf.AnnounceList)
-
 }
