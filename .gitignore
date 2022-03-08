@@ -32,4 +32,7 @@ go.work
 /vendor/
 /Godeps/
 
+
+torrent-client
+
 # End of https://www.toptal.com/developers/gitignore/api/go,bittorrent
