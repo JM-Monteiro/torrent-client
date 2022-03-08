@@ -22,5 +22,5 @@ func (bf Bitfield) SetPiece(index int) {
 	if byteIndex < 0 || byteIndex >= len(bf) {
 		return
 	}
-	bf[byteIndex] |= 1 << uint(7 - offset)
+	bf[byteIndex] |= 1 << uint(7-offset)
 }

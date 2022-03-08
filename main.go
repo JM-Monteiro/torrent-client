@@ -1,13 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
-	"github.com/veggiedefender/torrent-client/torrentfile"
+	"github.com/JM-Monteiro/torrent-client/torrentfile"
+	"github.com/anacrolix/torrent/metainfo"
 )
 
-func main() {
+func mainReal() {
 	inPath := os.Args[1]
 	outPath := os.Args[2]
 
@@ -20,4 +22,26 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func main() {
+
+	_, err := torrentfile.Open("originalTest.torrent")
+	//_, err := torrentfile.Open("test1.torrent")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mi, err := metainfo.LoadFromFile("originalTest.torrent")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(mi.HashInfoBytes())
+
+	/*err = tf.DownloadToFile("real")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(tf.AnnounceList)*/
+
 }

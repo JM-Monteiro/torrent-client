@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/veggiedefender/torrent-client/client"
-	"github.com/veggiedefender/torrent-client/message"
-	"github.com/veggiedefender/torrent-client/peers"
+	"github.com/JM-Monteiro/torrent-client/client"
+	"github.com/JM-Monteiro/torrent-client/message"
+	"github.com/JM-Monteiro/torrent-client/peers"
 )
 
 // MaxBlockSize is the largest number of bytes a request can ask for
@@ -192,9 +192,9 @@ func (t *Torrent) Download() ([]byte, error) {
 		length := t.calculatePieceSize(index)
 		workQueue <- &pieceWork{index, hash, length}
 	}
-
 	// Start workers
 	for _, peer := range t.Peers {
+		log.Println("Started Workers", peer)
 		go t.startDownloadWorker(peer, workQueue, results)
 	}
 

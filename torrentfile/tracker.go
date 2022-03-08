@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/veggiedefender/torrent-client/peers"
+	"github.com/JM-Monteiro/torrent-client/peers"
 
 	"github.com/jackpal/bencode-go"
 )
@@ -35,7 +35,9 @@ func (t *TorrentFile) buildTrackerURL(peerID [20]byte, port uint16) (string, err
 }
 
 func (t *TorrentFile) requestPeers(peerID [20]byte, port uint16) ([]peers.Peer, error) {
+	//log.Println("Connecting with peerId:", peerID, "port:", port)
 	url, err := t.buildTrackerURL(peerID, port)
+	//log.Println("Got URL:", url)
 	if err != nil {
 		return nil, err
 	}
@@ -49,9 +51,9 @@ func (t *TorrentFile) requestPeers(peerID [20]byte, port uint16) ([]peers.Peer, 
 
 	trackerResp := bencodeTrackerResp{}
 	err = bencode.Unmarshal(resp.Body, &trackerResp)
+
 	if err != nil {
 		return nil, err
 	}
-
 	return peers.Unmarshal([]byte(trackerResp.Peers))
 }
