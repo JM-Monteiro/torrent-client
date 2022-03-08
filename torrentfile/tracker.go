@@ -35,9 +35,9 @@ func (t *TorrentFile) buildTrackerURL(peerID [20]byte, port uint16) (string, err
 }
 
 func (t *TorrentFile) requestPeers(peerID [20]byte, port uint16) ([]peers.Peer, error) {
-	//log.Println("Connecting with peerId:", peerID, "port:", port)
+
 	url, err := t.buildTrackerURL(peerID, port)
-	//log.Println("Got URL:", url)
+
 	if err != nil {
 		return nil, err
 	}

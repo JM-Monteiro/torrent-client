@@ -6,9 +6,13 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
 	"os"
 
 	"github.com/JM-Monteiro/torrent-client/p2p"
+
+	bencode2 "github.com/anacrolix/torrent/bencode"
 	"github.com/jackpal/bencode-go"
 )
 
@@ -45,6 +49,11 @@ type bencodeTorrent struct {
 	AnnounceList [][]string  `bencode:"announce-list"`
 	Announce     string      `bencode:"announce"`
 	Info         bencodeInfo `bencode:"info"`
+	InfoBytes    []byte
+}
+
+type MetaInfo struct {
+	InfoBytes bencode2.Bytes `bencode:"info,omitempty"`
 }
 
 // DownloadToFile downloads a torrent and writes it to a file
@@ -69,12 +78,20 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 		Length:      t.Length,
 		Name:        t.Name,
 	}
-	buf, err := torrent.Download()
+
+	recieverData := make(chan []byte)
+	recieverPieceId := make(chan int)
+
+	go t.recievePieces(path, recieverData, recieverPieceId)
+
+	_, err = torrent.Download(recieverData, recieverPieceId)
 	if err != nil {
 		return err
 	}
 
-	if len(t.Files) > 0 {
+	return nil
+
+	/*if len(t.Files) > 0 {
 		return t.writeMultipleFiles(path, buf)
 	} else {
 		outFile, err := os.Create(path)
@@ -88,56 +105,124 @@ func (t *TorrentFile) DownloadToFile(path string) error {
 			return err
 		}
 		return nil
-	}
+	}*/
 }
 
-func (t *TorrentFile) writeMultipleFiles(path string, buf []byte) error {
-	fullPath := path + "/" + t.Name
-	err := os.Mkdir(fullPath, 0755)
+func (t *TorrentFile) recievePieces(path string, data chan []byte, id chan int) error {
+	fullPath := path
+	donePieces := 0
+	if len(t.Files) > 0 {
+		err := os.Mkdir(path, 0755)
+		if err != nil {
+			return err
+		}
+		fullPath = path + "/" + t.Name
+		err = os.Mkdir(fullPath, 0755)
+		if err != nil {
+			return err
+		}
+	}
+
+	fileArray := make([]*os.File, 0)
+	pieceMap := make(map[int]*os.File)
+	startPiece := make(map[*os.File]int)
+	for _, file := range t.Files {
+		outFile, err := os.Create(fullPath + "/" + file)
+		if err != nil {
+			return nil
+		}
+		fileArray = append(fileArray, outFile)
+	}
+
+	curLenght := 0
+	curFile := 0
+	for i, _ := range t.PieceHashes {
+		pieceMap[i] = fileArray[curFile]
+		curLenght = curLenght + t.PieceLength
+		if curLenght >= t.FileLenght[t.Files[curFile]] && curFile+1 < len(fileArray) {
+			curFile = curFile + 1
+			curLenght = 0
+			startPiece[fileArray[curFile]] = i + 1
+		}
+	}
+
+	fileBuffer := make(map[int][]byte, len(t.Files))
+	for i := range fileBuffer {
+		buf := make([]byte, t.FileLenght[t.Files[i]])
+		fileBuffer[i] = buf
+	}
+
+	for _, file := range fileArray {
+		defer file.Close()
+	}
+
+	for donePieces < len(t.PieceHashes) {
+		newData := <-data
+		newId := <-id
+
+		file := pieceMap[newId]
+		startP := startPiece[file]
+
+		index := newId - startP
+
+		file.WriteAt(newData, int64(index)*int64(t.PieceLength))
+
+		donePieces = donePieces + 1
+
+		log.Println("Wrote File: ", file.Name(), "at pos: ", index)
+	}
+
+	return nil
+
+}
+
+func getInfoBytes(file io.Reader, bto *bencodeTorrent) error {
+
+	var mi MetaInfo
+	d := bencode2.NewDecoder(file)
+	err := d.Decode(&mi)
 	if err != nil {
 		return err
 	}
 
-	bytesRead := 0
-	for i, file := range t.Files {
-		outFile, err := os.Create(fullPath + "/" + file)
-		if err != nil {
-			return err
-		}
-		defer outFile.Close()
+	bto.InfoBytes = mi.InfoBytes
 
-		fileBuf := make([]byte, t.FileLenght[file])
-		if i == 0 {
-			fileBuf = append(fileBuf, buf[:t.FileLenght[file]]...)
-		} else {
-			fileBuf = append(fileBuf, buf[bytesRead+1:t.FileLenght[file]]...)
-		}
-
-		bytesRead = bytesRead + t.FileLenght[file]
-
-		_, err = outFile.Write(fileBuf)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 // Open parses a torrent file
 func Open(path string) (TorrentFile, error) {
 	file, err := os.Open(path)
+
 	if err != nil {
 		return TorrentFile{}, err
 	}
+
 	defer file.Close()
 
 	bto := bencodeTorrent{}
+
 	err = bencode.Unmarshal(file, &bto)
+
+	file.Seek(0, 0)
+
+	getInfoBytes(file, &bto)
+
+	if err != nil {
+		return TorrentFile{}, err
+	}
+
 	if err != nil {
 		return TorrentFile{}, err
 	}
 
 	return bto.toTorrentFile()
+}
+
+func (i *bencodeTorrent) hash() ([20]byte, error) {
+
+	h := sha1.Sum(i.InfoBytes)
+	return h, nil
 }
 
 func (i *bencodeInfo) hash() ([20]byte, error) {
@@ -169,7 +254,7 @@ func (i *bencodeInfo) splitPieceHashes() ([][20]byte, error) {
 }
 
 func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
-	infoHash, err := bto.Info.hash()
+	infoHash, err := bto.hash()
 	fmt.Println(hex.EncodeToString(infoHash[:]))
 	if err != nil {
 		return TorrentFile{}, err
@@ -182,7 +267,7 @@ func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
 	files := make([]string, 0)
 	fileSize := make(map[string]int)
 
-	/*if len(bto.Info.Files) > 0 {
+	if len(bto.Info.Files) > 0 {
 		for _, f := range bto.Info.Files {
 			filePath := ""
 			for _, p := range f.Path {
@@ -191,7 +276,7 @@ func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
 			files = append(files, filePath)
 			fileSize[filePath] = f.Lenght
 		}
-	}*/
+	}
 
 	addrList := make([]string, 0)
 	for _, annouce := range bto.AnnounceList {
@@ -206,8 +291,11 @@ func (bto *bencodeTorrent) toTorrentFile() (TorrentFile, error) {
 		addrList = nil
 	}
 	if len(files) == 0 {
-		files = nil
-		fileSize = nil
+		files = append(files, bto.Info.Name)
+	} else {
+		for _, v := range fileSize {
+			bto.Info.Length = bto.Info.Length + v
+		}
 	}
 
 	t := TorrentFile{

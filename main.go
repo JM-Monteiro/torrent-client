@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/JM-Monteiro/torrent-client/torrentfile"
-	"github.com/anacrolix/torrent/metainfo"
 )
 
 func mainReal() {
@@ -26,22 +25,15 @@ func mainReal() {
 
 func main() {
 
-	_, err := torrentfile.Open("originalTest.torrent")
-	//_, err := torrentfile.Open("test1.torrent")
+	tf, err := torrentfile.Open("originalTest.torrent")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	mi, err := metainfo.LoadFromFile("originalTest.torrent")
+	err = tf.DownloadToFile("testFiles")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(mi.HashInfoBytes())
-
-	/*err = tf.DownloadToFile("real")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(tf.AnnounceList)*/
+	fmt.Println(tf.AnnounceList)
 
 }
